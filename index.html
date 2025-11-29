@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link type="style" href="styles.css">
+    <title>Tetris</title>
+</head>
+<style>
+#game{
+    width: 330px;
+    height: 660px;
+    border: solid black 1px;
+    display: flex;
+    flex-direction: column;
+}
+#piece-container {
+    width: 100px;
+    height: 100px;
+    border: solid black 1px;
+    display: flex;
+    flex-direction: column;
+}
+#game-cell {
+    border: 1px solid gray;
+}
+#game-row {
+    display: flex;
+    flex-direction: row;
+}
+.blue {
+    background-color: blue;
+}
+</style>
+
+<body>
+    <h2 style="text-align: center;">
+        Tetris
+    </h2>
+    <div style="display: flex; justify-content:center;">
+        <div>
+            <div id="piece-view">
+                <div>
+                    This should not show
+                </div>
+            </div>
+        </div>
+        <div id="game">
+            <div>
+                This should not show
+            </div>
+        </div>
+    </div>
+</body>
+<script defer>
+
+
+    const pieceTypeMap = [
+        // {
+        //     color: "green",
+        //     positions: [ // square
+        //         [0,0],
+        //         [1,0],
+        //         [0,1],
+        //         [1,1],
+        //     ],
+        //     rotation: false
+        // },
+        {
+            color: "blue",
+            positions: [ //line
+                [-1,0],
+                [0,0],
+                [1,0],
+                [2,0],
+            ],
+        },
+        {
+            color: "blue", //trident
+            positions: [
+                [1,0],
+                [0,0],
+                [0,1],
+                [1,1],
+            ],
+        },
+        {
+            color: "blue", //zig
+            positions: [
+                [-1,0],
+                [0,0],
+                [0,1],
+                [1,1],
+            ],
+        },
+        {
+            color: "blue", //zag
+            positions: [
+                [1,0],
+                [0,0],
+                [0,-1],
+                [-1,-1],
+            ],
+        },
+        {
+            color: "blue", //left crook
+            positions: [
+                [0,-1],
+                [0,0],
+                [1,0],
+                [2,0],
+            ],
+        },
+        {
+            color: "blue", //right crook
+            positions: [
+                [0,-1],
+                [0,0],
+                [1,0],
+                [2,0],
+            ],
+        },
+    ]
+
+    class Board {
+        /** !Array<Array<any>> */  
+        _virtualBoard = [];
+        _htmlBoard;
+        _rowHeight;
+        _rowWidth;
+        /***
+         * @param {number} rows
+         * @param {number} cols
+         * @param {string} boardId
+         */
+        constructor(rows, cols, boardId){
+            this._rows = rows
+            this._cols = cols
+            this.boardId = boardId
+            this._htmlBoard = document.getElementById(boardId)
+            console.log(this._htmlBoard);
+            this._htmlBoard.replaceChildren([])
+            
+            this._rowHeight = 1 / rows * 100
+            this._cellWidth = 1 / cols * 100
+            for (let i = 0; i < rows; i++) {
+                const vRow = new Array(cols).fill(null)
+                this._virtualBoard.push(vRow)
+                const htmlRow = this.createHtmlRow()
+
+                for (let j = 0; j < cols; j++) {
+                    const htmlCell = this.createHtmlCell()
+                    htmlRow.appendChild(htmlCell)
+                }
+                this._htmlBoard.appendChild(htmlRow)
+            }
+        }
+
+        createHtmlCell() {
+            const cell = document.createElement("div")
+            console.log(this._cellWidth);
+            
+            cell.style.width = this._cellWidth + "%";
+            cell.style.height = "100%"
+            cell.style.margin = "1px"
+            cell.id = this.boardId + "-cell"
+            return cell
+        }
+
+        createHtmlRow() {
+            const row = document.createElement("div")
+            row.style.width = "100%"
+            row.style.height = this._rowHeight + "%"
+            row.id = this.boardId + "-row"
+            return row
+        }
+
+        
+        /**
+         * @param {number} row
+         * @param {number} col
+         * @param {CellState} cell
+        */
+        updateCellAt(row, col, cell){
+            // const htmlCell = this._htmlBoard.children.item(i)?.children.item(j)
+            const htmlCell = this._htmlBoard.children[i].children[j]
+            if (htmlCell == null) return
+            htmlCell.style.backgroundColor = cell?.color
+        }
+
+        clearBoard(){
+            for (let i = 0; i < this._rows; i++) {
+                for (let j = 0; j < this.cols; j++) {
+                    const htmlCell = this._htmlBoard.children[i].children[j]
+                    htmlCell.classList.value = ""
+                }
+            }
+        }
+
+        render(){
+            console.log("rendering");
+            
+            this.clearBoard()
+            for (let i = 0; i < this._rows; i++) {
+                for (let j = 0; j < this._cols; j++) {
+                    const htmlCell = this._htmlBoard.children[i].children[j]
+                    const color = this._virtualBoard[i][j]?.color
+                    if(color){
+
+                        htmlCell.classList.add(color)
+                    }
+                }
+            }
+        }
+
+        displayPieceOnBoardAt(pieceIdx, row, col) {
+            const piece = pieceTypeMap[pieceIdx]
+            piece.positions.forEach(([rOff,cOff]) => {
+                this._virtualBoard[row + rOff][col + cOff] = { color: piece.color }
+            })
+        }
+
+    }
+
+    /***
+     * @param {!Board} board
+     * @param {HTMLElement} boardContainer
+     * @param {Record<string, any>} state
+    */
+    function gameLoop(board, state) {
+        //calculate next state
+        if (!("movingPiece" in state)){
+            state.movingPiece = {
+                type: 0
+            }
+        }
+
+        //calc next board
+        board.displayPieceOnBoardAt(5, 5, 5)
+        console.log(board);
+        
+        //render the board
+        board.render()
+    }
+    
+    function main() {
+        let gameSpeed = 1000
+        const gameBoardId = "game"
+        const gameBoard = new Board(20, 10, gameBoardId)
+        const state = {}
+        gameLoop(gameBoard, state)
+        setInterval(() => {
+            gameLoop(gameBoard, state)
+            // console.log("tick - ", gameSpeed);
+            // console.log(state);
+        }, gameSpeed)
+
+
+
+    }
+    main()
+
+</script>
+</html>
