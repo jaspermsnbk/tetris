@@ -21,6 +21,13 @@
     display: flex;
     flex-direction: column;
 }
+#preview-cell {
+    /* border: 1px solid gray; */
+}
+#preview-row {
+    display: flex;
+    flex-direction: row;
+}
 #game-cell {
     border: 1px solid gray;
 }
@@ -38,15 +45,18 @@
         Tetris
     </h2>
     
-    <div style="display: flex; justify-content:center;">
-        <div>
+    <div style="display: flex; justify-content: center; justify-content: center;">
+        <div style="display: flex; flex-direction: column; align-items: center; margin: 5px;">
             <div id="preview">
                 <div>
                     This should not show
                 </div>
             </div>
-            <button id="cycleButton">cycle through pieces</button>
-            <button id="rotate">rotate</button>
+            <div style="display: flex; flex-direction: column; justify-content: center; margin: 10px;">
+
+                <button id="cycleButton">cycle</button>
+                <button id="rotate">rotate</button>
+            </div>
         </div>
         <div id="game">
             <div>
@@ -127,7 +137,8 @@
                 [0, 1],
                 [1, 1],
             ],
-            rotation: false
+            rotation: false,
+            previewPosition: [1,1]
         },
         {
             color: "blue",
@@ -137,7 +148,7 @@
                 [1, 0],
                 [2, 0],
             ],
-            previewPosition: [0,0]
+            previewPosition: [1,1]
         },
         {
             color: "blue", //trident
@@ -147,7 +158,7 @@
                 [0, 1],
                 [0,-1],
             ],
-            previewPosition: [0,0]
+            previewPosition: [1,1]
         },
         {
             color: "blue", //zig
@@ -157,7 +168,7 @@
                 [0, -1],
                 [-1,-1],
             ],
-            previewPosition: [0,0]
+            previewPosition: [1,1]
         },
         {
             color: "blue", //zag
@@ -177,7 +188,7 @@
                 [1, 0],
                 [2, 0],
             ],
-            previewPosition: [0,0]
+            previewPosition: [1,1]
         },
         {
             color: "blue", //right crook
@@ -187,7 +198,7 @@
                 [1, 0],
                 [2, 0],
             ],
-            previewPosition: [0,0]
+            previewPosition: [1,1]
         },
     ]
 
@@ -231,7 +242,7 @@
             
             cell.style.width = this._cellWidth + "%";
             cell.style.height = "100%"
-            cell.style.margin = "1px"
+            // cell.style.margin = "1px"
             cell.id = this.boardId + "-cell"
             return cell
         }
@@ -250,7 +261,7 @@
          * @param {number} col
          * @param {CellState} cell
         */
-        updateCellAt(row, col, cell){
+        updateHtmlCellAt(row, col, cell){
             // const htmlCell = this._htmlBoard.children.item(i)?.children.item(j)
             const htmlCell = this._htmlBoard.children[row].children[col]
             if (htmlCell == null) return
@@ -274,15 +285,20 @@
             this.clearHtmlBoard()
             for (let i = 0; i < this._rows; i++) {
                 for (let j = 0; j < this._cols; j++) {
-                    this.updateCellAt(i, j, this._virtualBoard[i][j])
+                    this.updateHtmlCellAt(i, j, this._virtualBoard[i][j])
                 }
             }
         }
 
         displayPieceOnBoardAt(piece, row, col) {
             piece.positions.forEach(([rOff,cOff]) => {
-                this._virtualBoard[row + rOff][col + cOff] = { color: piece.color }
+                this.setVBoardAt(row + rOff, col + cOff, {color: piece.color})
             })
+        }
+
+        setVBoardAt(row, col, val) {
+            if(row < 0 || col < 0 || row > this._virtualBoard.length -1  || col > this._virtualBoard[0].length -1) return
+            this._virtualBoard[row][col] = val
         }
 
         clearVirtualBoard(){
@@ -297,7 +313,7 @@
 
     /***
      * @param {!Board} board
-     * @param {HTMLElement} boardContainer
+     * @param {!Board} previewBoard
      * @param {Record<string, any>} state
     */
     function gameLoop(board, previewBoard, state) {
@@ -305,6 +321,17 @@
         // console.log(state);
         board.clearVirtualBoard()
         
+        //draw all dead cells
+        Object.entries(state.deadCellMap).forEach(([idx, cell]) => {
+            const [row, col] = idx.split("-").map(v => Number(v))
+            board.setVBoardAt(row, col, cell)
+        })
+        
+        //move the moving piece down
+        const nextPositions = state.movingPiece.positions.map((pos) => [pos[0] + 1 + state.movingPiecePosition[0], pos[1] + state.movingPiecePosition[0]])
+        console.log("nextPositions:", nextPositions);
+        
+
         if(state.rotate) {
             state.movingPiece.positions = 
                 state.movingPiece.positions.map((pos) => 
@@ -316,10 +343,20 @@
         }
 
         //calc next board
-        board.displayPieceOnBoardAt(state.movingPiece, 5, 5);
+        console.log(state.movingPiece, state.movingPiecePosition[0], state.movingPiecePosition[1]);
+        
+        board.displayPieceOnBoardAt(state.movingPiece, state.movingPiecePosition[0]++, state.movingPiecePosition[1]);
+
+        console.log(previewBoard);
+        
+        previewBoard.clearVirtualBoard()
+        const nextPiece = pieceTypeMap[state.nextPieceIdx]
+        previewBoard.displayPieceOnBoardAt(nextPiece, 1, 1 )
         // console.log(board._virtualBoard);
         
+
         //render the board
+        previewBoard.render()
         board.render()
     }
     
@@ -330,7 +367,7 @@
     function main() {
         
         
-        let gameSpeed = 1000
+        let gameSpeed = 700
 
         const gameBoardId = "game"
         const gameBoard = new Board(20, 10, gameBoardId)
@@ -340,15 +377,18 @@
 
         const firstPieceIdx = getRandomPieceIdx()
 
-        var state = {
+        const state = {
             movingPiece: deepCopy(pieceTypeMap[firstPieceIdx]),
-            nextPiece: getRandomPieceIdx(),
+            movingPiecePosition: [-2, Math.floor(gameBoard._cols / 2)],
+            nextPieceIdx: getRandomPieceIdx(),
             pieceIdx: firstPieceIdx,
-            rotate: false
+            rotate: false,
+            deadCellMap: {}
         }
 
         document.getElementById("cycleButton").addEventListener("click", () => {
             state.pieceIdx = (state.pieceIdx + 1) % 7
+            state.nextPieceIdx = (state.pieceIdx + 1) % 7
             state.movingPiece = deepCopy(pieceTypeMap[state.pieceIdx])
         })
 
