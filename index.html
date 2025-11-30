@@ -14,7 +14,7 @@
     display: flex;
     flex-direction: column;
 }
-#piece-container {
+#preview {
     width: 100px;
     height: 100px;
     border: solid black 1px;
@@ -37,13 +37,16 @@
     <h2 style="text-align: center;">
         Tetris
     </h2>
+    
     <div style="display: flex; justify-content:center;">
         <div>
-            <div id="piece-view">
+            <div id="preview">
                 <div>
                     This should not show
                 </div>
             </div>
+            <button id="cycleButton">cycle through pieces</button>
+            <button id="rotate">rotate</button>
         </div>
         <div id="game">
             <div>
@@ -53,72 +56,138 @@
     </div>
 </body>
 <script defer>
+    const counterClockwiseRotationMatrix = [
+        [0, 1],
+        [-1, 0]
+    ]
 
+    const clockwiseRotationMatrix = counterClockwiseRotationMatrix.map(row => row.map(val => val * -1))
+
+    function transpose(A) {
+        const rows = A.length;
+        const cols = A[0].length;
+
+        const result = Array.from({ length: cols }, () =>
+            Array(rows).fill(0)
+        );
+
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+            result[j][i] = A[i][j];
+            }
+        }
+
+        return result;
+    }
+
+    function multiplyMatrices(A, B) {
+        const aRows = A.length;
+        const aCols = A[0].length;
+        const bRows = B.length;
+        const bCols = B[0].length;
+
+        if (aCols !== bRows) {
+            throw new Error("Matrix dimensions do not match for multiplication.");
+        }
+
+        // Create result matrix filled with zeros
+        const result = Array.from({ length: aRows }, () =>
+            Array(bCols).fill(0)
+        );
+
+        // Multiply
+        for (let i = 0; i < aRows; i++) {
+            for (let j = 0; j < bCols; j++) {
+                for (let k = 0; k < aCols; k++) {
+                    result[i][j] += A[i][k] * B[k][j];
+                }
+            }
+        }
+        return result;
+    }
+
+    function rotatePositionClockwise(pos) {
+        return (multiplyMatrices(clockwiseRotationMatrix, pos))
+    }
+
+    function rotatePositionCounterClockwise(pos) {
+        return (multiplyMatrices(counterClockwiseRotationMatrix, pos))
+    }
+
+    function deepCopy(obj){
+        return JSON.parse(JSON.stringify(obj))
+    }
 
     const pieceTypeMap = [
-        // {
-        //     color: "green",
-        //     positions: [ // square
-        //         [0,0],
-        //         [1,0],
-        //         [0,1],
-        //         [1,1],
-        //     ],
-        //     rotation: false
-        // },
+        {
+            color: "blue",
+            positions: [ // square
+                [0, 0],
+                [1, 0],
+                [0, 1],
+                [1, 1],
+            ],
+            rotation: false
+        },
         {
             color: "blue",
             positions: [ //line
                 [-1,0],
-                [0,0],
-                [1,0],
-                [2,0],
+                [0, 0],
+                [1, 0],
+                [2, 0],
             ],
+            previewPosition: [0,0]
         },
         {
             color: "blue", //trident
             positions: [
-                [1,0],
-                [0,0],
-                [0,1],
-                [1,1],
+                [1, 0],
+                [0, 0],
+                [0, 1],
+                [0,-1],
             ],
+            previewPosition: [0,0]
         },
         {
             color: "blue", //zig
             positions: [
-                [-1,0],
-                [0,0],
-                [0,1],
-                [1,1],
+                [1, 0],
+                [0, 0],
+                [0, -1],
+                [-1,-1],
             ],
+            previewPosition: [0,0]
         },
         {
             color: "blue", //zag
             positions: [
-                [1,0],
-                [0,0],
-                [0,-1],
-                [-1,-1],
+                [1, 0],
+                [0, 0],
+                [0, 1],
+                [-1, 1],
             ],
+            previewPosition: [0,0]
         },
         {
             color: "blue", //left crook
             positions: [
-                [0,-1],
-                [0,0],
-                [1,0],
-                [2,0],
+                [0, -1],
+                [0, 0],
+                [1, 0],
+                [2, 0],
             ],
+            previewPosition: [0,0]
         },
         {
             color: "blue", //right crook
             positions: [
-                [0,-1],
-                [0,0],
-                [1,0],
-                [2,0],
+                [0, 1],
+                [0, 0],
+                [1, 0],
+                [2, 0],
             ],
+            previewPosition: [0,0]
         },
     ]
 
@@ -138,7 +207,7 @@
             this._cols = cols
             this.boardId = boardId
             this._htmlBoard = document.getElementById(boardId)
-            console.log(this._htmlBoard);
+            // console.log(this._htmlBoard);
             this._htmlBoard.replaceChildren([])
             
             this._rowHeight = 1 / rows * 100
@@ -158,7 +227,7 @@
 
         createHtmlCell() {
             const cell = document.createElement("div")
-            console.log(this._cellWidth);
+            // console.log(this._cellWidth);
             
             cell.style.width = this._cellWidth + "%";
             cell.style.height = "100%"
@@ -183,14 +252,17 @@
         */
         updateCellAt(row, col, cell){
             // const htmlCell = this._htmlBoard.children.item(i)?.children.item(j)
-            const htmlCell = this._htmlBoard.children[i].children[j]
+            const htmlCell = this._htmlBoard.children[row].children[col]
             if (htmlCell == null) return
-            htmlCell.style.backgroundColor = cell?.color
+            const color = cell?.color
+            if (color) {
+                htmlCell.classList.add(color)
+            }
         }
 
-        clearBoard(){
+        clearHtmlBoard(){
             for (let i = 0; i < this._rows; i++) {
-                for (let j = 0; j < this.cols; j++) {
+                for (let j = 0; j < this._cols; j++) {
                     const htmlCell = this._htmlBoard.children[i].children[j]
                     htmlCell.classList.value = ""
                 }
@@ -199,27 +271,28 @@
 
         render(){
             console.log("rendering");
-            
-            this.clearBoard()
+            this.clearHtmlBoard()
             for (let i = 0; i < this._rows; i++) {
                 for (let j = 0; j < this._cols; j++) {
-                    const htmlCell = this._htmlBoard.children[i].children[j]
-                    const color = this._virtualBoard[i][j]?.color
-                    if(color){
-
-                        htmlCell.classList.add(color)
-                    }
+                    this.updateCellAt(i, j, this._virtualBoard[i][j])
                 }
             }
         }
 
-        displayPieceOnBoardAt(pieceIdx, row, col) {
-            const piece = pieceTypeMap[pieceIdx]
+        displayPieceOnBoardAt(piece, row, col) {
             piece.positions.forEach(([rOff,cOff]) => {
                 this._virtualBoard[row + rOff][col + cOff] = { color: piece.color }
             })
         }
 
+        clearVirtualBoard(){
+             for (let i = 0; i < this._rows; i++) {
+                for (let j = 0; j < this._cols; j++) {
+                   this._virtualBoard[i][j] = null
+                }
+            }
+        }
+        
     }
 
     /***
@@ -227,34 +300,71 @@
      * @param {HTMLElement} boardContainer
      * @param {Record<string, any>} state
     */
-    function gameLoop(board, state) {
+    function gameLoop(board, previewBoard, state) {
         //calculate next state
-        if (!("movingPiece" in state)){
-            state.movingPiece = {
-                type: 0
-            }
+        // console.log(state);
+        board.clearVirtualBoard()
+        
+        if(state.rotate) {
+            state.movingPiece.positions = 
+                state.movingPiece.positions.map((pos) => 
+                    transpose(
+                        rotatePositionCounterClockwise(
+                            transpose([pos])))[0]
+                )
+            state.rotate = false
         }
 
         //calc next board
-        board.displayPieceOnBoardAt(5, 5, 5)
-        console.log(board);
+        board.displayPieceOnBoardAt(state.movingPiece, 5, 5);
+        // console.log(board._virtualBoard);
         
         //render the board
         board.render()
     }
     
+    function getRandomPieceIdx(){
+        return Math.floor((Math.random() * 10) % 7)
+    }
+
     function main() {
+        
+        
         let gameSpeed = 1000
+
         const gameBoardId = "game"
         const gameBoard = new Board(20, 10, gameBoardId)
-        const state = {}
-        gameLoop(gameBoard, state)
+
+        const previewBoardId = "preview"
+        const previewBoard = new Board(4, 4, previewBoardId)
+
+        const firstPieceIdx = getRandomPieceIdx()
+
+        var state = {
+            movingPiece: deepCopy(pieceTypeMap[firstPieceIdx]),
+            nextPiece: getRandomPieceIdx(),
+            pieceIdx: firstPieceIdx,
+            rotate: false
+        }
+
+        document.getElementById("cycleButton").addEventListener("click", () => {
+            state.pieceIdx = (state.pieceIdx + 1) % 7
+            state.movingPiece = deepCopy(pieceTypeMap[state.pieceIdx])
+        })
+
+        document.getElementById("rotate").addEventListener("click", () => {
+            state.rotate = true
+        })
+
+        console.log("initial state: ", state);
+        
+        gameLoop(gameBoard, previewBoard, state)
+
         setInterval(() => {
-            gameLoop(gameBoard, state)
+            gameLoop(gameBoard, previewBoard, state)
             // console.log("tick - ", gameSpeed);
             // console.log(state);
         }, gameSpeed)
-
 
 
     }
