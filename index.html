@@ -327,6 +327,10 @@
             board.setVBoardAt(row, col, cell)
         })
         
+        if(state.tick == 0){
+            console.log("move down");
+            
+        }
         //move the moving piece down
         const nextPositions = state.movingPiece.positions.map((pos) => [pos[0] + 1 + state.movingPiecePosition[0], pos[1] + state.movingPiecePosition[0]])
         console.log("nextPositions:", nextPositions);
@@ -358,6 +362,7 @@
         //render the board
         previewBoard.render()
         board.render()
+        state.tick = (state.tick + 1) % state.gameSpeed;
     }
     
     function getRandomPieceIdx(){
@@ -367,7 +372,7 @@
     function main() {
         
         
-        let gameSpeed = 700
+        let gameSpeed = 500
 
         const gameBoardId = "game"
         const gameBoard = new Board(20, 10, gameBoardId)
@@ -383,7 +388,8 @@
             nextPieceIdx: getRandomPieceIdx(),
             pieceIdx: firstPieceIdx,
             rotate: false,
-            deadCellMap: {}
+            deadCellMap: {},
+            tick: 0,
         }
 
         document.getElementById("cycleButton").addEventListener("click", () => {
